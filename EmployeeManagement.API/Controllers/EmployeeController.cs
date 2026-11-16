@@ -1,6 +1,9 @@
 ﻿
-using Microsoft.AspNetCore.Mvc;
+using EmployeeManagement.API.Data;
+using EmployeeManagement.API.DTOs;
 using EmployeeManagement.API.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EmployeeManagement.API.Controllers
 {
@@ -8,42 +11,30 @@ namespace EmployeeManagement.API.Controllers
     [Route("api/[controller]")]
     public class EmployeeController : ControllerBase
     {
-        // Temporary employee data (in-memory)
-        private static readonly List<Employee> employees = new()
-        {
-            new Employee
-            {
-                Id = 1,
-                Name = "Thiru",
-                Email = "thiru@gmail.com",
-                Department = "IT",
-                Salary = 45000,
-                JoiningDate = new DateTime(2024, 1, 15)
-            },
-            new Employee
-            {
-                Id = 2,
-                Name = "Arun",
-                Email = "arun@gmail.com",
-                Department = "HR",
-                Salary = 35000,
-                JoiningDate = new DateTime(2023, 6, 10)
-            }
-        };
+        private readonly AppDbContext _context;
 
-        // GET: api/employee
-        [HttpGet]
-        public ActionResult<List<Employee>> GetEmployees()
+        // Constructor Dependency Injection
+        public EmployeeController(AppDbContext context)
         {
+            _context = context;
+        }
+
+        // GET: api/Employee
+        // Get all employees
+        [HttpGet]
+        public async Task<ActionResult<List<Employee>>> GetEmployees()
+        {
+            var employees = await _context.Employees.ToListAsync();
+
             return Ok(employees);
         }
 
-
         // GET: api/Employee/1
+        // Get employee by ID
         [HttpGet("{id:int}")]
-        public ActionResult<Employee> GetEmployeeById(int id)
+        public async Task<ActionResult<Employee>> GetEmployeeById(int id)
         {
-            var employee = employees.FirstOrDefault(e => e.Id == id);
+            var employee = await _context.Employees.FindAsync(id);
 
             if (employee == null)
             {
@@ -53,66 +44,85 @@ namespace EmployeeManagement.API.Controllers
             return Ok(employee);
         }
 
-
         // POST: api/Employee
+        // Create new employee
         [HttpPost]
-        public ActionResult<Employee> CreateEmployee([FromBody] Employee employee)
+        public async Task<ActionResult<Employee>> CreateEmployee(
+            [FromBody] CreateEmployeeRequestDto employeeDto)
         {
-            // Generate the next employee ID
-            employee.Id = employees.Count > 0
-                ? employees.Max(e => e.Id) + 1
-                : 1;
+            var employee = new Employee
+            {
+                Name = employeeDto.Name,
+                Email = employeeDto.Email,
+                Department = employeeDto.Department,
+                Salary = employeeDto.Salary,
+                JoiningDate = employeeDto.JoiningDate
+            };
 
-            // Add employee to the list
-            employees.Add(employee);
+            _context.Employees.Add(employee);
 
-            // Return HTTP 201 Created
+            await _context.SaveChangesAsync();
+            
+            // Convert Employee entity into response DTO
+            var response = new EmployeeResponseDto
+            {
+                Id = employee.Id,
+                Name = employee.Name,
+                Email = employee.Email,
+                Department = employee.Department,
+                Salary = employee.Salary,
+                JoiningDate = employee.JoiningDate
+            };
+
             return CreatedAtAction(
                 nameof(GetEmployeeById),
                 new { id = employee.Id },
-                employee
+                response
             );
         }
-
-
-        // PUT: api/Employee/3
+        
+        // PUT: api/Employee/1
+        // Update existing employee
         [HttpPut("{id:int}")]
-        public IActionResult UpdateEmployee(int id, [FromBody] Employee updatedEmployee)
+        public async Task<IActionResult> UpdateEmployee(
+            int id,
+            [FromBody] Employee updatedEmployee)
         {
-            // Find existing employee
-            var employee = employees.FirstOrDefault(e => e.Id == id);
+            var employee = await _context.Employees.FindAsync(id);
 
-            // Check whether employee exists
             if (employee == null)
             {
                 return NotFound($"Employee with ID {id} was not found.");
             }
 
-            // Update employee properties
             employee.Name = updatedEmployee.Name;
             employee.Email = updatedEmployee.Email;
             employee.Department = updatedEmployee.Department;
             employee.Salary = updatedEmployee.Salary;
             employee.JoiningDate = updatedEmployee.JoiningDate;
 
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
-        // DELETE: api/Employee/3
+        // DELETE: api/Employee/1
+        // Delete employee
         [HttpDelete("{id:int}")]
-        public IActionResult DeleteEmployee(int id)
+        public async Task<IActionResult> DeleteEmployee(int id)
         {
-            var employee = employees.FirstOrDefault(e => e.Id == id);
+            var employee = await _context.Employees.FindAsync(id);
 
             if (employee == null)
             {
                 return NotFound($"Employee with ID {id} was not found.");
             }
 
-            employees.Remove(employee);
+            _context.Employees.Remove(employee);
+
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
-
     }
 }
