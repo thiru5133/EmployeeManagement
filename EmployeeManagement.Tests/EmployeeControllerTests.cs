@@ -1,95 +1,161 @@
-using Microsoft.AspNetCore.Mvc;
 using EmployeeManagement.API.Controllers;
 using EmployeeManagement.API.DTOs;
-using Xunit;
+using EmployeeManagement.API.Services;
+using Microsoft.AspNetCore.Mvc;
+using NSubstitute;
+using NSubstitute.ReturnsExtensions;
 
 namespace EmployeeManagement.Tests
 {
+    /// <summary>
+    /// Day 7 Controller Tests — using NSubstitute to mock IEmployeeService.
+    ///
+    /// Why mocking matters:
+    ///   Before (Day 6): controller tests used a static in-memory list — tests
+    ///   shared state and affected each other.
+    ///
+    ///   Now (Day 7): We mock IEmployeeService using NSubstitute. Each test gets a
+    ///   fresh mock with EXACTLY the data it specifies. No shared state. No DB needed.
+    ///   This is true unit testing — we test only the controller logic in isolation.
+    /// </summary>
     public class EmployeeControllerTests
     {
-        // We need a fresh controller for each test - but the static list is shared.
-        // Note: in Day 8 when we introduce Service layer, this will be much cleaner.
-        // For Day 6, we test the controller's HTTP response shapes.
+        // ── Helpers ─────────────────────────────────────────────────────────────
+
+        private static EmployeeController CreateController(IEmployeeService service)
+            => new(service);
+
+        private static EmployeeResponseDto SampleEmployee(int id = 1) => new()
+        {
+            Id = id,
+            Name = "Thiru",
+            Email = "thiru@gmail.com",
+            Department = "IT",
+            Salary = 45000,
+            JoiningDate = new DateTime(2024, 1, 15)
+        };
+
+        // ── GET ALL ──────────────────────────────────────────────────────────────
 
         [Fact]
-        public void GetEmployees_ReturnsOkResult()
+        public async Task GetEmployees_ReturnsOkWithList()
         {
             // Arrange
-            var controller = new EmployeeController();
+            var service = Substitute.For<IEmployeeService>();
+            service.GetAllAsync().Returns(new List<EmployeeResponseDto>
+            {
+                SampleEmployee(1),
+                SampleEmployee(2)
+            });
+            var controller = CreateController(service);
 
             // Act
-            var result = controller.GetEmployees();
+            var result = await controller.GetEmployees();
 
             // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            Assert.NotNull(okResult.Value);
-            Assert.Equal(200, okResult.StatusCode);
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var list = Assert.IsAssignableFrom<IEnumerable<EmployeeResponseDto>>(ok.Value);
+            Assert.Equal(2, list.Count());
         }
 
         [Fact]
-        public void GetEmployeeById_WithValidId_ReturnsOkResult()
+        public async Task GetEmployees_WhenEmpty_ReturnsOkWithEmptyList()
         {
             // Arrange
-            var controller = new EmployeeController();
+            var service = Substitute.For<IEmployeeService>();
+            service.GetAllAsync().Returns(Enumerable.Empty<EmployeeResponseDto>());
+            var controller = CreateController(service);
 
             // Act
-            var result = controller.GetEmployeeById(1);
+            var result = await controller.GetEmployees();
 
             // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var dto = Assert.IsType<EmployeeResponseDto>(okResult.Value);
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var list = Assert.IsAssignableFrom<IEnumerable<EmployeeResponseDto>>(ok.Value);
+            Assert.Empty(list);
+        }
+
+        // ── GET BY ID ────────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task GetEmployeeById_WhenFound_ReturnsOk()
+        {
+            // Arrange
+            var service = Substitute.For<IEmployeeService>();
+            service.GetByIdAsync(1).Returns(SampleEmployee(1));
+            var controller = CreateController(service);
+
+            // Act
+            var result = await controller.GetEmployeeById(1);
+
+            // Assert
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var dto = Assert.IsType<EmployeeResponseDto>(ok.Value);
             Assert.Equal(1, dto.Id);
-            // Note: static list is shared across tests - we just verify ID returned, not Name
-            // (In Day 8, service layer injection will give us proper test isolation)
-            Assert.NotNull(dto.Name);
+            Assert.Equal("Thiru", dto.Name);
         }
 
         [Fact]
-        public void GetEmployeeById_WithNonExistentId_Returns404NotFound()
+        public async Task GetEmployeeById_WhenNotFound_Returns404()
         {
             // Arrange
-            var controller = new EmployeeController();
+            var service = Substitute.For<IEmployeeService>();
+            service.GetByIdAsync(999).ReturnsNull();
+            var controller = CreateController(service);
 
             // Act
-            var result = controller.GetEmployeeById(9999);
+            var result = await controller.GetEmployeeById(999);
 
             // Assert
-            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result.Result);
-            Assert.Equal(404, notFoundResult.StatusCode);
+            Assert.IsType<NotFoundObjectResult>(result.Result);
         }
 
+        // ── CREATE ───────────────────────────────────────────────────────────────
+
         [Fact]
-        public void CreateEmployee_WithValidDto_Returns201Created()
+        public async Task CreateEmployee_WithValidDto_Returns201Created()
         {
             // Arrange
-            var controller = new EmployeeController();
             var dto = new CreateEmployeeDto
             {
-                Name = "New Employee",
-                Email = "new@example.com",
-                Department = "Sales",
-                Salary = 42000,
-                JoiningDate = DateTime.UtcNow
+                Name = "Kavitha",
+                Email = "kavitha@example.com",
+                Department = "Engineering",
+                Salary = 60000,
+                JoiningDate = new DateTime(2024, 3, 1)
+            };
+            var created = new EmployeeResponseDto
+            {
+                Id = 3,
+                Name = dto.Name,
+                Email = dto.Email,
+                Department = dto.Department,
+                Salary = dto.Salary,
+                JoiningDate = dto.JoiningDate
             };
 
+            var service = Substitute.For<IEmployeeService>();
+            service.CreateAsync(dto).Returns(created);
+            var controller = CreateController(service);
+
             // Act
-            var result = controller.CreateEmployee(dto);
+            var result = await controller.CreateEmployee(dto);
 
             // Assert
             var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
             Assert.Equal(201, createdResult.StatusCode);
 
-            var created = Assert.IsType<EmployeeResponseDto>(createdResult.Value);
-            Assert.Equal("New Employee", created.Name);
-            Assert.Equal("new@example.com", created.Email);
-            Assert.True(created.Id > 0);
+            var body = Assert.IsType<EmployeeResponseDto>(createdResult.Value);
+            Assert.Equal(3, body.Id);
+            Assert.Equal("Kavitha", body.Name);
         }
 
+        // ── UPDATE ───────────────────────────────────────────────────────────────
+
         [Fact]
-        public void UpdateEmployee_WithValidDto_Returns204NoContent()
+        public async Task UpdateEmployee_WhenFound_Returns204NoContent()
         {
             // Arrange
-            var controller = new EmployeeController();
             var dto = new UpdateEmployeeDto
             {
                 Name = "Thiru Updated",
@@ -99,19 +165,21 @@ namespace EmployeeManagement.Tests
                 JoiningDate = new DateTime(2024, 1, 15)
             };
 
+            var service = Substitute.For<IEmployeeService>();
+            service.UpdateAsync(1, dto).Returns(true);
+            var controller = CreateController(service);
+
             // Act
-            var result = controller.UpdateEmployee(1, dto);
+            var result = await controller.UpdateEmployee(1, dto);
 
             // Assert
-            var noContent = Assert.IsType<NoContentResult>(result);
-            Assert.Equal(204, noContent.StatusCode);
+            Assert.IsType<NoContentResult>(result);
         }
 
         [Fact]
-        public void UpdateEmployee_WithNonExistentId_Returns404NotFound()
+        public async Task UpdateEmployee_WhenNotFound_Returns404()
         {
             // Arrange
-            var controller = new EmployeeController();
             var dto = new UpdateEmployeeDto
             {
                 Name = "Ghost",
@@ -121,26 +189,64 @@ namespace EmployeeManagement.Tests
                 JoiningDate = DateTime.UtcNow
             };
 
+            var service = Substitute.For<IEmployeeService>();
+            service.UpdateAsync(999, dto).Returns(false);
+            var controller = CreateController(service);
+
             // Act
-            var result = controller.UpdateEmployee(9999, dto);
+            var result = await controller.UpdateEmployee(999, dto);
 
             // Assert
-            var notFound = Assert.IsType<NotFoundObjectResult>(result);
-            Assert.Equal(404, notFound.StatusCode);
+            Assert.IsType<NotFoundObjectResult>(result);
+        }
+
+        // ── DELETE ───────────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task DeleteEmployee_WhenFound_Returns204NoContent()
+        {
+            // Arrange
+            var service = Substitute.For<IEmployeeService>();
+            service.DeleteAsync(1).Returns(true);
+            var controller = CreateController(service);
+
+            // Act
+            var result = await controller.DeleteEmployee(1);
+
+            // Assert
+            Assert.IsType<NoContentResult>(result);
         }
 
         [Fact]
-        public void DeleteEmployee_WithNonExistentId_Returns404NotFound()
+        public async Task DeleteEmployee_WhenNotFound_Returns404()
         {
             // Arrange
-            var controller = new EmployeeController();
+            var service = Substitute.For<IEmployeeService>();
+            service.DeleteAsync(999).Returns(false);
+            var controller = CreateController(service);
 
             // Act
-            var result = controller.DeleteEmployee(9999);
+            var result = await controller.DeleteEmployee(999);
 
             // Assert
-            var notFound = Assert.IsType<NotFoundObjectResult>(result);
-            Assert.Equal(404, notFound.StatusCode);
+            Assert.IsType<NotFoundObjectResult>(result);
+        }
+
+        // ── SERVICE CALLED ONCE ──────────────────────────────────────────────────
+
+        [Fact]
+        public async Task GetEmployeeById_CallsServiceExactlyOnce()
+        {
+            // Arrange
+            var service = Substitute.For<IEmployeeService>();
+            service.GetByIdAsync(1).Returns(SampleEmployee(1));
+            var controller = CreateController(service);
+
+            // Act
+            await controller.GetEmployeeById(1);
+
+            // Assert — verify the service was called exactly once with ID=1
+            await service.Received(1).GetByIdAsync(1);
         }
     }
 }
