@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using EmployeeManagement.API.Models;
+using EmployeeManagement.API.Data;
 using EmployeeManagement.API.DTOs;
+using EmployeeManagement.API.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EmployeeManagement.API.Controllers
 {
@@ -9,34 +11,19 @@ namespace EmployeeManagement.API.Controllers
     [Produces("application/json")]
     public class EmployeeController : ControllerBase
     {
-        // Temporary in-memory employee data (for Day 6)
-        private static readonly List<Employee> employees = new()
+        private readonly AppDbContext _context;
+
+        public EmployeeController(AppDbContext context)
         {
-            new Employee
-            {
-                Id = 1,
-                Name = "Thiru",
-                Email = "thiru@gmail.com",
-                Department = "IT",
-                Salary = 45000,
-                JoiningDate = new DateTime(2024, 1, 15)
-            },
-            new Employee
-            {
-                Id = 2,
-                Name = "Arun",
-                Email = "arun@gmail.com",
-                Department = "HR",
-                Salary = 35000,
-                JoiningDate = new DateTime(2023, 6, 10)
-            }
-        };
+            _context = context;
+        }
 
         // GET: api/employee
         [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<EmployeeResponseDto>), StatusCodes.Status200OK)]
-        public ActionResult<IEnumerable<EmployeeResponseDto>> GetEmployees()
+        public async Task<ActionResult<IEnumerable<EmployeeResponseDto>>> GetEmployees()
         {
+            var employees = await _context.Employees.ToListAsync();
             var response = employees.Select(MapToResponseDto);
             return Ok(response);
         }
@@ -45,9 +32,10 @@ namespace EmployeeManagement.API.Controllers
         [HttpGet("{id:int}")]
         [ProducesResponseType(typeof(EmployeeResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public ActionResult<EmployeeResponseDto> GetEmployeeById(int id)
+        public async Task<ActionResult<EmployeeResponseDto>> GetEmployeeById(int id)
         {
-            var employee = employees.FirstOrDefault(e => e.Id == id);
+            var employee = await _context.Employees.FindAsync(id);
+
             if (employee == null)
             {
                 return NotFound(new { message = $"Employee with ID {id} was not found." });
@@ -60,15 +48,10 @@ namespace EmployeeManagement.API.Controllers
         [HttpPost]
         [ProducesResponseType(typeof(EmployeeResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public ActionResult<EmployeeResponseDto> CreateEmployee([FromBody] CreateEmployeeDto dto)
+        public async Task<ActionResult<EmployeeResponseDto>> CreateEmployee([FromBody] CreateEmployeeDto dto)
         {
-            var nextId = employees.Count > 0
-                ? employees.Max(e => e.Id) + 1
-                : 1;
-
             var employee = new Employee
             {
-                Id = nextId,
                 Name = dto.Name,
                 Email = dto.Email,
                 Department = dto.Department,
@@ -76,7 +59,8 @@ namespace EmployeeManagement.API.Controllers
                 JoiningDate = dto.JoiningDate
             };
 
-            employees.Add(employee);
+            _context.Employees.Add(employee);
+            await _context.SaveChangesAsync();
 
             var response = MapToResponseDto(employee);
 
@@ -92,9 +76,10 @@ namespace EmployeeManagement.API.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult UpdateEmployee(int id, [FromBody] UpdateEmployeeDto dto)
+        public async Task<IActionResult> UpdateEmployee(int id, [FromBody] UpdateEmployeeDto dto)
         {
-            var employee = employees.FirstOrDefault(e => e.Id == id);
+            var employee = await _context.Employees.FindAsync(id);
+
             if (employee == null)
             {
                 return NotFound(new { message = $"Employee with ID {id} was not found." });
@@ -106,6 +91,8 @@ namespace EmployeeManagement.API.Controllers
             employee.Salary = dto.Salary;
             employee.JoiningDate = dto.JoiningDate;
 
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
@@ -113,15 +100,18 @@ namespace EmployeeManagement.API.Controllers
         [HttpDelete("{id:int}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult DeleteEmployee(int id)
+        public async Task<IActionResult> DeleteEmployee(int id)
         {
-            var employee = employees.FirstOrDefault(e => e.Id == id);
+            var employee = await _context.Employees.FindAsync(id);
+
             if (employee == null)
             {
                 return NotFound(new { message = $"Employee with ID {id} was not found." });
             }
 
-            employees.Remove(employee);
+            _context.Employees.Remove(employee);
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
