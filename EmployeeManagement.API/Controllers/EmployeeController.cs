@@ -1,14 +1,15 @@
-﻿
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using EmployeeManagement.API.Models;
+using EmployeeManagement.API.DTOs;
 
 namespace EmployeeManagement.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Produces("application/json")]
     public class EmployeeController : ControllerBase
     {
-        // Temporary employee data (in-memory)
+        // Temporary in-memory employee data (for Day 6)
         private static readonly List<Employee> employees = new()
         {
             new Employee
@@ -33,86 +34,108 @@ namespace EmployeeManagement.API.Controllers
 
         // GET: api/employee
         [HttpGet]
-        public ActionResult<List<Employee>> GetEmployees()
+        [ProducesResponseType(typeof(IEnumerable<EmployeeResponseDto>), StatusCodes.Status200OK)]
+        public ActionResult<IEnumerable<EmployeeResponseDto>> GetEmployees()
         {
-            return Ok(employees);
+            var response = employees.Select(MapToResponseDto);
+            return Ok(response);
         }
 
-
-        // GET: api/Employee/1
+        // GET: api/employee/1
         [HttpGet("{id:int}")]
-        public ActionResult<Employee> GetEmployeeById(int id)
+        [ProducesResponseType(typeof(EmployeeResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public ActionResult<EmployeeResponseDto> GetEmployeeById(int id)
         {
             var employee = employees.FirstOrDefault(e => e.Id == id);
-
             if (employee == null)
             {
-                return NotFound($"Employee with ID {id} was not found.");
+                return NotFound(new { message = $"Employee with ID {id} was not found." });
             }
 
-            return Ok(employee);
+            return Ok(MapToResponseDto(employee));
         }
 
-
-        // POST: api/Employee
+        // POST: api/employee
         [HttpPost]
-        public ActionResult<Employee> CreateEmployee([FromBody] Employee employee)
+        [ProducesResponseType(typeof(EmployeeResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public ActionResult<EmployeeResponseDto> CreateEmployee([FromBody] CreateEmployeeDto dto)
         {
-            // Generate the next employee ID
-            employee.Id = employees.Count > 0
+            var nextId = employees.Count > 0
                 ? employees.Max(e => e.Id) + 1
                 : 1;
 
-            // Add employee to the list
+            var employee = new Employee
+            {
+                Id = nextId,
+                Name = dto.Name,
+                Email = dto.Email,
+                Department = dto.Department,
+                Salary = dto.Salary,
+                JoiningDate = dto.JoiningDate
+            };
+
             employees.Add(employee);
 
-            // Return HTTP 201 Created
+            var response = MapToResponseDto(employee);
+
             return CreatedAtAction(
                 nameof(GetEmployeeById),
                 new { id = employee.Id },
-                employee
+                response
             );
         }
 
-
-        // PUT: api/Employee/3
+        // PUT: api/employee/1
         [HttpPut("{id:int}")]
-        public IActionResult UpdateEmployee(int id, [FromBody] Employee updatedEmployee)
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult UpdateEmployee(int id, [FromBody] UpdateEmployeeDto dto)
         {
-            // Find existing employee
             var employee = employees.FirstOrDefault(e => e.Id == id);
-
-            // Check whether employee exists
             if (employee == null)
             {
-                return NotFound($"Employee with ID {id} was not found.");
+                return NotFound(new { message = $"Employee with ID {id} was not found." });
             }
 
-            // Update employee properties
-            employee.Name = updatedEmployee.Name;
-            employee.Email = updatedEmployee.Email;
-            employee.Department = updatedEmployee.Department;
-            employee.Salary = updatedEmployee.Salary;
-            employee.JoiningDate = updatedEmployee.JoiningDate;
+            employee.Name = dto.Name;
+            employee.Email = dto.Email;
+            employee.Department = dto.Department;
+            employee.Salary = dto.Salary;
+            employee.JoiningDate = dto.JoiningDate;
 
             return NoContent();
         }
 
-        // DELETE: api/Employee/3
+        // DELETE: api/employee/1
         [HttpDelete("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public IActionResult DeleteEmployee(int id)
         {
             var employee = employees.FirstOrDefault(e => e.Id == id);
-
             if (employee == null)
             {
-                return NotFound($"Employee with ID {id} was not found.");
+                return NotFound(new { message = $"Employee with ID {id} was not found." });
             }
 
             employees.Remove(employee);
-
             return NoContent();
         }
 
+        private static EmployeeResponseDto MapToResponseDto(Employee employee)
+        {
+            return new EmployeeResponseDto
+            {
+                Id = employee.Id,
+                Name = employee.Name,
+                Email = employee.Email,
+                Department = employee.Department,
+                Salary = employee.Salary,
+                JoiningDate = employee.JoiningDate
+            };
+        }
     }
 }

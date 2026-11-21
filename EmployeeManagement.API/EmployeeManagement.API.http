@@ -1,6 +1,97 @@
 @EmployeeManagement.API_HostAddress = http://localhost:5293
 
-GET {{EmployeeManagement.API_HostAddress}}/weatherforecast/
+### 1. GET all employees (Success: 200 OK)
+GET {{EmployeeManagement.API_HostAddress}}/api/employee
 Accept: application/json
 
 ###
+
+### 2. GET employee by valid ID (Success: 200 OK)
+GET {{EmployeeManagement.API_HostAddress}}/api/employee/1
+Accept: application/json
+
+###
+
+### 3. GET employee by non-existent ID (Failure: 404 Not Found)
+GET {{EmployeeManagement.API_HostAddress}}/api/employee/999
+Accept: application/json
+
+###
+
+### 4. POST Create Employee - Valid payload (Success: 201 Created)
+POST {{EmployeeManagement.API_HostAddress}}/api/employee
+Content-Type: application/json
+
+{
+  "name": "Kavitha",
+  "email": "kavitha@example.com",
+  "department": "Engineering",
+  "salary": 65000,
+  "joiningDate": "2024-03-01T00:00:00Z"
+}
+
+###
+
+### 5. POST Create Employee - Invalid payload: Empty name, bad email, invalid salary (Failure: 400 Bad Request)
+POST {{EmployeeManagement.API_HostAddress}}/api/employee
+Content-Type: application/json
+
+{
+  "name": "",
+  "email": "invalid-email-format",
+  "department": "A",
+  "salary": -500,
+  "joiningDate": "2024-03-01T00:00:00Z"
+}
+
+###
+
+### 6. PUT Update Employee - Valid payload (Success: 204 No Content)
+PUT {{EmployeeManagement.API_HostAddress}}/api/employee/1
+Content-Type: application/json
+
+{
+  "name": "Thiru Updated",
+  "email": "thiru.updated@example.com",
+  "department": "IT Leadership",
+  "salary": 55000,
+  "joiningDate": "2024-01-15T00:00:00Z"
+}
+
+###
+
+### 7. PUT Update Employee - Non-existent ID (Failure: 404 Not Found)
+PUT {{EmployeeManagement.API_HostAddress}}/api/employee/999
+Content-Type: application/json
+
+{
+  "name": "Ghost Employee",
+  "email": "ghost@example.com",
+  "department": "Finance",
+  "salary": 40000,
+  "joiningDate": "2024-01-15T00:00:00Z"
+}
+
+###
+
+### 8. PUT Update Employee - Validation failure (Failure: 400 Bad Request)
+PUT {{EmployeeManagement.API_HostAddress}}/api/employee/1
+Content-Type: application/json
+
+{
+  "name": "T",
+  "email": "not-an-email",
+  "department": "",
+  "salary": 50,
+  "joiningDate": "2024-01-15T00:00:00Z"
+}
+
+###
+
+### 9. DELETE Employee - Valid ID (Success: 204 No Content)
+DELETE {{EmployeeManagement.API_HostAddress}}/api/employee/2
+
+###
+
+### 10. DELETE Employee - Non-existent ID (Failure: 404 Not Found)
+DELETE {{EmployeeManagement.API_HostAddress}}/api/employee/999
