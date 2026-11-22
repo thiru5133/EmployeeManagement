@@ -95,3 +95,40 @@ DELETE {{EmployeeManagement.API_HostAddress}}/api/employee/2
 
 ### 10. DELETE Employee - Non-existent ID (Failure: 404 Not Found)
 DELETE {{EmployeeManagement.API_HostAddress}}/api/employee/999
+
+###
+
+### ── DAY 9: FILTERING, SORTING, PAGINATION & RELATIONSHIPS ─────────────
+
+### 11. GET Paged Employees (Default Page 1, Size 10)
+GET {{EmployeeManagement.API_HostAddress}}/api/employee/paged?page=1&pageSize=5
+Accept: application/json
+
+###
+
+### 12. GET Filtered & Sorted Employees (Department filter + Sort by Salary Desc)
+GET {{EmployeeManagement.API_HostAddress}}/api/employee/paged?department=IT&sortBy=salary&isDescending=true
+Accept: application/json
+
+###
+
+### 13. GET All Departments with Eager-Loaded Employees
+GET {{EmployeeManagement.API_HostAddress}}/api/department
+Accept: application/json
+
+###
+
+### 14. GET Department by ID
+GET {{EmployeeManagement.API_HostAddress}}/api/department/1
+Accept: application/json
+
+###
+
+### 15. POST Create Department
+POST {{EmployeeManagement.API_HostAddress}}/api/department
+Content-Type: application/json
+
+{
+  "name": "Data Science & AI",
+  "description": "Machine learning and artificial intelligence solutions"
+}

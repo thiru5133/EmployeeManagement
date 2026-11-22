@@ -43,6 +43,23 @@ namespace EmployeeManagement.API.Services
             return list.Select(MapToDto);
         }
 
+        // ── GET PAGED (Day 9) ────────────────────────────────────────────────────
+        public async Task<PagedResult<EmployeeResponseDto>> GetPagedAsync(EmployeeQueryParameters parameters)
+        {
+            _logger.LogInformation("Fetching paged employees. Page={Page}, Size={Size}, Dept={Dept}, Term={Term}",
+                parameters.Page, parameters.PageSize, parameters.Department, parameters.SearchTerm);
+
+            var pagedEntities = await _repository.GetPagedAsync(parameters);
+
+            return new PagedResult<EmployeeResponseDto>
+            {
+                Data       = pagedEntities.Data.Select(MapToDto),
+                Page       = pagedEntities.Page,
+                PageSize   = pagedEntities.PageSize,
+                TotalCount = pagedEntities.TotalCount
+            };
+        }
+
         // ── GET BY ID ───────────────────────────────────────────────────────────
         public async Task<EmployeeResponseDto?> GetByIdAsync(int id)
         {

@@ -75,6 +75,35 @@ namespace EmployeeManagement.Tests
             Assert.Empty(list);
         }
 
+        // ── GET PAGED (Day 9) ────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task GetPagedEmployees_ReturnsOkWithPagedResult()
+        {
+            // Arrange
+            var parameters = new EmployeeQueryParameters { Page = 1, PageSize = 5 };
+            var pagedResult = new PagedResult<EmployeeResponseDto>
+            {
+                Data = new List<EmployeeResponseDto> { SampleEmployee(1) },
+                Page = 1,
+                PageSize = 5,
+                TotalCount = 1
+            };
+
+            var service = Substitute.For<IEmployeeService>();
+            service.GetPagedAsync(parameters).Returns(pagedResult);
+            var controller = CreateController(service);
+
+            // Act
+            var result = await controller.GetPagedEmployees(parameters);
+
+            // Assert
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var body = Assert.IsType<PagedResult<EmployeeResponseDto>>(ok.Value);
+            Assert.Single(body.Data);
+            Assert.Equal(1, body.TotalCount);
+        }
+
         // ── GET BY ID ────────────────────────────────────────────────────────────
 
         [Fact]

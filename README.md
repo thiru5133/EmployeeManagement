@@ -11,6 +11,7 @@ A **.NET 10 ASP.NET Core Web API** built as part of the **Week 2 .NET Engineerin
 - [Day 6 — DTOs, Validation & REST API Basics](#day-6--what-we-did)
 - [Day 7 — Dependency Injection & Middleware](#day-7--dependency-injection--middleware)
 - [Day 8 — Layered Architecture & Central Exception Handling](#day-8--layered-architecture--central-exception-handling)
+- [Day 9 — EF Core, Relationships & Pagination](#day-9--ef-core-relationships--pagination)
 - [API Endpoints](#api-endpoints)
 - [Running the Project](#running-the-project)
 - [Running Tests](#running-tests)
@@ -238,6 +239,30 @@ The solution clearly separates HTTP concerns, business logic, and data persisten
 - `GlobalExceptionMiddleware` wraps all pipeline requests.
 - Standardizes errors to RFC 7807 `ProblemDetails` (`application/problem+json`).
 - Translates known exceptions (`ArgumentException`, `KeyNotFoundException`, `UnauthorizedAccessException`) to appropriate HTTP status codes (400, 404, 401, 500).
+
+---
+
+## Day 9 — EF Core, Relationships & Pagination
+
+### 1. Entity Relationships (One-to-Many)
+- Established relationship between `Department` (1) and `Employee` (Many).
+- Configured via EF Core **Fluent API** in `AppDbContext.OnModelCreating` with `OnDelete(DeleteBehavior.SetNull)`.
+- Seeded initial departments (Engineering, Human Resources, Finance).
+
+### 2. Eager Loading & Query Tracking
+- **Eager Loading**: Used `.Include(d => d.Employees)` to fetch related entities in a single SQL query, avoiding the N+1 select problem.
+- **Tracking vs AsNoTracking**:
+  - `AsNoTracking()` applied to all read operations (e.g. `GetAllAsync`, `GetPagedAsync`, `GetByIdAsync`) to eliminate change-tracker overhead.
+  - Tracked queries (`FindAsync`) reserved for state mutations (e.g. Update, Delete).
+
+### 3. Filtering, Sorting & Pagination
+- Introduced `PagedResult<T>` wrapper providing `page`, `pageSize`, `totalCount`, `totalPages`, `hasPrevious`, `hasNext`.
+- Query parameters via `EmployeeQueryParameters`:
+  - `department`: Case-insensitive filter on department name.
+  - `searchTerm`: Substring matching across name and email.
+  - `sortBy`: Dynamic column ordering (`name`, `salary`, `joiningdate`, `department`).
+  - `isDescending`: Toggle ascending or descending ordering.
+  - Safe page bounds with `MaxPageSize = 50`.
 
 ---
 

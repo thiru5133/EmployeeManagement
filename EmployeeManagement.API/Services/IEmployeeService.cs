@@ -12,6 +12,9 @@ namespace EmployeeManagement.API.Services
         /// <summary>Returns all employees as response DTOs.</summary>
         Task<IEnumerable<EmployeeResponseDto>> GetAllAsync();
 
+        /// <summary>Day 9: Returns a paged, filtered, and sorted result set.</summary>
+        Task<PagedResult<EmployeeResponseDto>> GetPagedAsync(EmployeeQueryParameters parameters);
+
         /// <summary>Returns a single employee by ID, or null if not found.</summary>
         Task<EmployeeResponseDto?> GetByIdAsync(int id);
 

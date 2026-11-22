@@ -1,4 +1,5 @@
 using EmployeeManagement.API.Data;
+using EmployeeManagement.API.DTOs;
 using EmployeeManagement.API.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,8 +28,57 @@ namespace EmployeeManagement.API.Repositories
         public async Task<IEnumerable<Employee>> GetAllAsync()
         {
             return await _context.Employees
-                .AsNoTracking()      // read-only → no change-tracking overhead
+                .Include(e => e.DepartmentEntity) // Eager loading relationship
+                .AsNoTracking()                   // read-only → no change-tracking overhead
                 .ToListAsync();
+        }
+
+        // ── GET PAGED (Day 9) ────────────────────────────────────────────────────
+        public async Task<PagedResult<Employee>> GetPagedAsync(EmployeeQueryParameters parameters)
+        {
+            var query = _context.Employees
+                .Include(e => e.DepartmentEntity) // Eager loading
+                .AsNoTracking();
+
+            // 1. Filtering
+            if (!string.IsNullOrWhiteSpace(parameters.Department))
+            {
+                var dept = parameters.Department.Trim();
+                query = query.Where(e => e.Department.Contains(dept) ||
+                                        (e.DepartmentEntity != null && e.DepartmentEntity.Name.Contains(dept)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(parameters.SearchTerm))
+            {
+                var term = parameters.SearchTerm.Trim();
+                query = query.Where(e => e.Name.Contains(term) || e.Email.Contains(term));
+            }
+
+            // 2. Count total matching records before pagination
+            var totalCount = await query.CountAsync();
+
+            // 3. Sorting
+            query = parameters.SortBy?.ToLowerInvariant() switch
+            {
+                "salary"      => parameters.IsDescending ? query.OrderByDescending(e => e.Salary) : query.OrderBy(e => e.Salary),
+                "joiningdate" => parameters.IsDescending ? query.OrderByDescending(e => e.JoiningDate) : query.OrderBy(e => e.JoiningDate),
+                "department"  => parameters.IsDescending ? query.OrderByDescending(e => e.Department) : query.OrderBy(e => e.Department),
+                _             => parameters.IsDescending ? query.OrderByDescending(e => e.Name) : query.OrderBy(e => e.Name)
+            };
+
+            // 4. Pagination (Skip / Take)
+            var items = await query
+                .Skip((parameters.Page - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
+                .ToListAsync();
+
+            return new PagedResult<Employee>
+            {
+                Data = items,
+                Page = parameters.Page,
+                PageSize = parameters.PageSize,
+                TotalCount = totalCount
+            };
         }
 
         // ── GET BY ID ────────────────────────────────────────────────────────────

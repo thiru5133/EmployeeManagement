@@ -37,6 +37,16 @@ namespace EmployeeManagement.API.Controllers
             return Ok(employees);
         }
 
+        // GET: api/employee/paged?page=1&pageSize=10&department=IT&sortBy=salary&isDescending=true
+        // Day 9: Filtering, sorting, and pagination
+        [HttpGet("paged")]
+        [ProducesResponseType(typeof(PagedResult<EmployeeResponseDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<PagedResult<EmployeeResponseDto>>> GetPagedEmployees([FromQuery] EmployeeQueryParameters parameters)
+        {
+            var result = await _employeeService.GetPagedAsync(parameters);
+            return Ok(result);
+        }
+
         // GET: api/employee/1
         [HttpGet("{id:int}")]
         [ProducesResponseType(typeof(EmployeeResponseDto), StatusCodes.Status200OK)]

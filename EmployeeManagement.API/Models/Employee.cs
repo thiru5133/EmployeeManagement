@@ -33,5 +33,11 @@ namespace EmployeeManagement.API.Models
         public decimal Salary { get; set; }
 
         public DateTime JoiningDate { get; set; }
+
+        // Day 9 — Relationship: 1 Department to Many Employees
+        public int? DepartmentId { get; set; }
+
+        [ForeignKey(nameof(DepartmentId))]
+        public Department? DepartmentEntity { get; set; }
     }
 }

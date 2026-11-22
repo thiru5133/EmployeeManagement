@@ -1,3 +1,4 @@
+using EmployeeManagement.API.DTOs;
 using EmployeeManagement.API.Models;
 
 namespace EmployeeManagement.API.Repositories
@@ -21,6 +22,12 @@ namespace EmployeeManagement.API.Repositories
     {
         /// <summary>Returns all employees (read-only, no change tracking).</summary>
         Task<IEnumerable<Employee>> GetAllAsync();
+
+        /// <summary>
+        /// Day 9: Returns a paginated, filtered, and sorted list of employees.
+        /// Demonstrates LINQ-to-database queries with AsNoTracking.
+        /// </summary>
+        Task<PagedResult<Employee>> GetPagedAsync(EmployeeQueryParameters parameters);
 
         /// <summary>Returns a single employee by primary key, or null if not found.</summary>
         Task<Employee?> GetByIdAsync(int id);
