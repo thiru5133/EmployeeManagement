@@ -1,5 +1,6 @@
 using EmployeeManagement.API.DTOs;
 using EmployeeManagement.API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.API.Controllers
@@ -62,9 +63,12 @@ namespace EmployeeManagement.API.Controllers
         }
 
         // POST: api/employee
+        // Day 10: Protected endpoint — Requires valid JWT token
         [HttpPost]
+        [Authorize]
         [ProducesResponseType(typeof(EmployeeResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<EmployeeResponseDto>> CreateEmployee([FromBody] CreateEmployeeDto dto)
         {
             var created = await _employeeService.CreateAsync(dto);
@@ -73,9 +77,12 @@ namespace EmployeeManagement.API.Controllers
         }
 
         // PUT: api/employee/1
+        // Day 10: Protected endpoint — Requires valid JWT token
         [HttpPut("{id:int}")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateEmployee(int id, [FromBody] UpdateEmployeeDto dto)
         {
@@ -88,8 +95,12 @@ namespace EmployeeManagement.API.Controllers
         }
 
         // DELETE: api/employee/1
+        // Day 10: Role-based authorization — Requires "Admin" role (demonstrates 403 Forbidden vs 401 Unauthorized)
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteEmployee(int id)
         {

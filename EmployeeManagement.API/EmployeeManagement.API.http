@@ -132,3 +132,70 @@ Content-Type: application/json
   "name": "Data Science & AI",
   "description": "Machine learning and artificial intelligence solutions"
 }
+
+###
+
+### ── DAY 10: AUTHENTICATION & AUTHORIZATION (GATE 2) ──────────────────
+
+### 16. Login as Admin (Role: Admin)
+# @name adminLogin
+POST {{EmployeeManagement.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "Admin@123"
+}
+
+###
+
+### 17. Login as Standard User (Role: User)
+# @name userLogin
+POST {{EmployeeManagement.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "user",
+  "password": "User@123"
+}
+
+###
+
+### 18. Unauthenticated Request — Access Protected POST without Token (Expected: 401 Unauthorized)
+POST {{EmployeeManagement.API_HostAddress}}/api/employee
+Content-Type: application/json
+
+{
+  "name": "Anonymous User",
+  "email": "anon@example.com",
+  "department": "Engineering",
+  "salary": 70000,
+  "joiningDate": "2024-04-01T00:00:00Z"
+}
+
+###
+
+### 19. Authenticated Request — Access Protected POST with Token (Expected: 201 Created)
+POST {{EmployeeManagement.API_HostAddress}}/api/employee
+Content-Type: application/json
+Authorization: Bearer {{adminLogin.response.body.token}}
+
+{
+  "name": "Authorized Employee",
+  "email": "auth.emp@example.com",
+  "department": "Engineering",
+  "salary": 75000,
+  "joiningDate": "2024-04-01T00:00:00Z"
+}
+
+###
+
+### 20. Forbidden Request — Standard User tries to DELETE Admin-only endpoint (Expected: 403 Forbidden)
+DELETE {{EmployeeManagement.API_HostAddress}}/api/employee/1
+Authorization: Bearer {{userLogin.response.body.token}}
+
+###
+
+### 21. Authorized Admin Request — Admin deletes employee (Expected: 204 No Content or 404)
+DELETE {{EmployeeManagement.API_HostAddress}}/api/employee/1
+Authorization: Bearer {{adminLogin.response.body.token}}

@@ -12,6 +12,7 @@ A **.NET 10 ASP.NET Core Web API** built as part of the **Week 2 .NET Engineerin
 - [Day 7 — Dependency Injection & Middleware](#day-7--dependency-injection--middleware)
 - [Day 8 — Layered Architecture & Central Exception Handling](#day-8--layered-architecture--central-exception-handling)
 - [Day 9 — EF Core, Relationships & Pagination](#day-9--ef-core-relationships--pagination)
+- [Day 10 — Authentication, Authorization & Security (Gate 2)](#day-10--authentication-authorization--security-gate-2)
 - [API Endpoints](#api-endpoints)
 - [Running the Project](#running-the-project)
 - [Running Tests](#running-tests)
@@ -266,19 +267,46 @@ The solution clearly separates HTTP concerns, business logic, and data persisten
 
 ---
 
+## Day 10 — Authentication, Authorization & Security (Gate 2)
+
+### 1. Authentication vs Authorization
+- **Authentication (AuthN)**: *"Who are you?"*
+  - Verifies identity via credentials (username/password) through `POST /api/auth/login`.
+  - On success, issues a cryptographically signed JSON Web Token (JWT) bearing claims (`sub`, `name`, `role`).
+- **Authorization (AuthZ)**: *"What are you allowed to do?"*
+  - Determines if the authenticated caller has permission for a specific action or resource.
+  - Enforced via `[Authorize]` attributes and role policies (e.g. `[Authorize(Roles = "Admin")]`).
+
+### 2. HTTP 401 Unauthorized vs HTTP 403 Forbidden
+| Status Code | Meaning | Example Scenario |
+|-------------|---------|------------------|
+| **401 Unauthorized** | The request lacks valid authentication credentials. | Calling `POST /api/employee` without an `Authorization: Bearer <token>` header, or with an expired/tampered token. |
+| **403 Forbidden** | The caller is authenticated, but their identity lacks necessary privileges. | A standard user (`Role = "User"`) attempting to call `DELETE /api/employee/1` which requires `Role = "Admin"`. |
+
+### 3. Secrets & Secure Configuration
+- Sensitive secrets (like JWT symmetric keys) are read from `IConfiguration` (`builder.Configuration["Jwt:Key"]`).
+- In local development, .NET User Secrets (`dotnet user-secrets`) or environment variables override configuration files without committing sensitive credentials to source control.
+
+---
+
 ## API Endpoints
 
 Base URL (Development): `http://localhost:5293`
 
-| Method | Route | Body | Success | Failure |
-|--------|-------|------|---------|---------|
-| `GET` | `/api/employee` | — | `200 OK` | — |
-| `GET` | `/api/employee/{id}` | — | `200 OK` | `404 Not Found` |
-| `POST` | `/api/employee` | `CreateEmployeeDto` | `201 Created` | `400 Bad Request` |
-| `PUT` | `/api/employee/{id}` | `UpdateEmployeeDto` | `204 No Content` | `400 Bad Request`, `404 Not Found` |
-| `DELETE` | `/api/employee/{id}` | — | `204 No Content` | `404 Not Found` |
+| Method | Route | Auth / Role | Body | Success | Failure |
+|--------|-------|-------------|------|---------|---------|
+| `POST` | `/api/auth/login` | Anonymous | `LoginRequestDto` | `200 OK` (JWT) | `400`, `401 Unauthorized` |
+| `GET` | `/api/employee` | Anonymous | — | `200 OK` | — |
+| `GET` | `/api/employee/paged` | Anonymous | Query Params | `200 OK` (`PagedResult`) | — |
+| `GET` | `/api/employee/{id}` | Anonymous | — | `200 OK` | `404 Not Found` |
+| `POST` | `/api/employee` | `[Authorize]` | `CreateEmployeeDto` | `201 Created` | `400`, `401 Unauthorized` |
+| `PUT` | `/api/employee/{id}` | `[Authorize]` | `UpdateEmployeeDto` | `204 No Content` | `400`, `401`, `404` |
+| `DELETE` | `/api/employee/{id}` | `[Authorize(Roles="Admin")]` | — | `204 No Content` | `401`, `403 Forbidden`, `404` |
+| `GET` | `/api/department` | Anonymous | — | `200 OK` | — |
+| `GET` | `/api/department/{id}` | Anonymous | — | `200 OK` | `404 Not Found` |
+| `POST` | `/api/department` | Anonymous | `CreateDepartmentDto` | `201 Created` | `400 Bad Request` |
 
-Swagger UI available at: `http://localhost:5293/swagger`
+Swagger UI available at: `http://localhost:5293/swagger` (includes Bearer Token input).
 
 ---
 
@@ -317,9 +345,11 @@ dotnet test EmployeeManagement.Tests
 
 ---
 
-## 🔜 Coming Up — Day 7
+## 🎯 Week 2 Submission Checklist (Gate 2 Checkpoint)
 
-- Extract business logic from controller into `IEmployeeService` / `EmployeeService`
-- Register services using **Dependency Injection** (`AddScoped`, `AddTransient`, `AddSingleton`)
-- Build a custom **logging middleware** using `ILogger<T>`
-- Learn about DI lifetimes and captive dependency pitfalls
+- [x] **Source code with a clear project structure**: Split into Controllers, Services, Repositories, Data, Models, DTOs, and Middleware.
+- [x] **README with setup and run instructions**: Complete documentation covering Days 6–10, request pipeline, and architecture diagrams.
+- [x] **OpenAPI documentation and example requests**: Swagger UI with JWT Bearer support + 21 scenario HTTP test file (`EmployeeManagement.API.http`).
+- [x] **Database setup or migration instructions**: EF Core with LocalDB/SQL Server connection strings and code-first migrations.
+- [x] **Automated test suite and results**: Comprehensive unit tests covering DTO validation, Controllers, Services (with NSubstitute mocks), and Auth token generation.
+- [x] **Build/test evidence and security**: Role-based authorization (`Admin` vs `User`) demonstrating 200, 201, 204, 400, 401, 403, and 404 responses.
