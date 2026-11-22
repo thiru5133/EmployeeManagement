@@ -295,6 +295,7 @@ Base URL (Development): `http://localhost:5293`
 
 | Method | Route | Auth / Role | Body | Success | Failure |
 |--------|-------|-------------|------|---------|---------|
+| `POST` | `/api/auth/register` | Anonymous | `RegisterRequestDto` | `201 Created` | `400 Bad Request` |
 | `POST` | `/api/auth/login` | Anonymous | `LoginRequestDto` | `200 OK` (JWT) | `400`, `401 Unauthorized` |
 | `GET` | `/api/employee` | Anonymous | — | `200 OK` | — |
 | `GET` | `/api/employee/paged` | Anonymous | Query Params | `200 OK` (`PagedResult`) | — |

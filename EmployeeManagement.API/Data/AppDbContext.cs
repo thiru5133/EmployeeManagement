@@ -11,6 +11,7 @@ namespace EmployeeManagement.API.Data
 
         public DbSet<Employee> Employees { get; set; } = null!;
         public DbSet<Department> Departments { get; set; } = null!;
+        public DbSet<User> Users { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

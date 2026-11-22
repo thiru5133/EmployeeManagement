@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace EmployeeManagement.Tests
 {
     /// <summary>
-    /// Day 10 — Authentication and Token Generation Unit Tests.
+    /// Authentication and User Registration Unit Tests.
     /// </summary>
     public class AuthServiceTests
     {
@@ -29,6 +29,88 @@ namespace EmployeeManagement.Tests
 
         private AuthService CreateService()
             => new(_configuration, NullLogger<AuthService>.Instance);
+
+        // ── REGISTRATION TESTS ───────────────────────────────────────────────────
+
+        [Fact]
+        public async Task RegisterAsync_WithValidData_ReturnsRegisteredUser()
+        {
+            // Arrange
+            var service = CreateService();
+            var uniqueUser = $"newuser_{Guid.NewGuid():N}";
+            var request = new RegisterRequestDto
+            {
+                Username = uniqueUser,
+                Email    = $"{uniqueUser}@example.com",
+                Password = "SecurePassword123!",
+                Role     = "User"
+            };
+
+            // Act
+            var result = await service.RegisterAsync(request);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(uniqueUser, result.Username);
+            Assert.Equal("User", result.Role);
+            Assert.True(result.Id > 0);
+        }
+
+        [Fact]
+        public async Task RegisterAsync_AndThenLogin_ReturnsValidTokenWithRole()
+        {
+            // Arrange
+            var service = CreateService();
+            var uniqueUser = $"reguser_{Guid.NewGuid():N}";
+            var password = "StrongPassword@2026";
+
+            await service.RegisterAsync(new RegisterRequestDto
+            {
+                Username = uniqueUser,
+                Email    = $"{uniqueUser}@example.com",
+                Password = password,
+                Role     = "Admin"
+            });
+
+            // Act: Login with newly registered credentials
+            var loginResult = await service.AuthenticateAsync(new LoginRequestDto
+            {
+                Username = uniqueUser,
+                Password = password
+            });
+
+            // Assert
+            Assert.NotNull(loginResult);
+            Assert.NotEmpty(loginResult!.Token);
+            Assert.Equal("Admin", loginResult.Role);
+        }
+
+        [Fact]
+        public async Task RegisterAsync_WithDuplicateUsername_ThrowsArgumentException()
+        {
+            // Arrange
+            var service = CreateService();
+            var uniqueUser = $"dupuser_{Guid.NewGuid():N}";
+
+            await service.RegisterAsync(new RegisterRequestDto
+            {
+                Username = uniqueUser,
+                Email    = $"{uniqueUser}@example.com",
+                Password = "Password123!"
+            });
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                service.RegisterAsync(new RegisterRequestDto
+                {
+                    Username = uniqueUser,
+                    Email    = $"other_{uniqueUser}@example.com",
+                    Password = "DifferentPassword123!"
+                })
+            );
+        }
+
+        // ── LOGIN TESTS ──────────────────────────────────────────────────────────
 
         [Fact]
         public async Task AuthenticateAsync_WithValidAdminCredentials_ReturnsTokenWithAdminRole()

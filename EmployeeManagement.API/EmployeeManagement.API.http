@@ -137,7 +137,33 @@ Content-Type: application/json
 
 ### ── DAY 10: AUTHENTICATION & AUTHORIZATION (GATE 2) ──────────────────
 
-### 16. Login as Admin (Role: Admin)
+### 16. Register New User (Role: User)
+POST {{EmployeeManagement.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "johndoe",
+  "email": "johndoe@example.com",
+  "password": "Password@2026",
+  "role": "User"
+}
+
+###
+
+### 17. Register New Admin (Role: Admin)
+POST {{EmployeeManagement.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "superadmin",
+  "email": "superadmin@example.com",
+  "password": "SuperAdmin@2026",
+  "role": "Admin"
+}
+
+###
+
+### 18. Login as Admin (Role: Admin)
 # @name adminLogin
 POST {{EmployeeManagement.API_HostAddress}}/api/auth/login
 Content-Type: application/json
@@ -149,7 +175,7 @@ Content-Type: application/json
 
 ###
 
-### 17. Login as Standard User (Role: User)
+### 19. Login as Standard User (Role: User)
 # @name userLogin
 POST {{EmployeeManagement.API_HostAddress}}/api/auth/login
 Content-Type: application/json
@@ -161,7 +187,18 @@ Content-Type: application/json
 
 ###
 
-### 18. Unauthenticated Request — Access Protected POST without Token (Expected: 401 Unauthorized)
+### 20. Login with Newly Registered User
+POST {{EmployeeManagement.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "johndoe",
+  "password": "Password@2026"
+}
+
+###
+
+### 21. Unauthenticated Request — Access Protected POST without Token (Expected: 401 Unauthorized)
 POST {{EmployeeManagement.API_HostAddress}}/api/employee
 Content-Type: application/json
 
@@ -175,7 +212,7 @@ Content-Type: application/json
 
 ###
 
-### 19. Authenticated Request — Access Protected POST with Token (Expected: 201 Created)
+### 22. Authenticated Request — Access Protected POST with Token (Expected: 201 Created)
 POST {{EmployeeManagement.API_HostAddress}}/api/employee
 Content-Type: application/json
 Authorization: Bearer {{adminLogin.response.body.token}}
@@ -190,12 +227,12 @@ Authorization: Bearer {{adminLogin.response.body.token}}
 
 ###
 
-### 20. Forbidden Request — Standard User tries to DELETE Admin-only endpoint (Expected: 403 Forbidden)
+### 23. Forbidden Request — Standard User tries to DELETE Admin-only endpoint (Expected: 403 Forbidden)
 DELETE {{EmployeeManagement.API_HostAddress}}/api/employee/1
 Authorization: Bearer {{userLogin.response.body.token}}
 
 ###
 
-### 21. Authorized Admin Request — Admin deletes employee (Expected: 204 No Content or 404)
+### 24. Authorized Admin Request — Admin deletes employee (Expected: 204 No Content or 404)
 DELETE {{EmployeeManagement.API_HostAddress}}/api/employee/1
 Authorization: Bearer {{adminLogin.response.body.token}}
