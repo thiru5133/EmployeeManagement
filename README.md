@@ -8,11 +8,9 @@ A **.NET 10 ASP.NET Core Web API** built as part of the **Week 2 .NET Engineerin
 
 - [Project Overview](#project-overview)
 - [Project Structure](#project-structure)
-- [Day 6 — What We Did](#day-6--what-we-did)
-  - [DTOs & Model Validation](#1-dtos--model-validation)
-  - [Updated Controller](#2-updated-controller)
-  - [HTTP Test File](#3-http-test-file)
-  - [Unit Tests](#4-unit-tests)
+- [Day 6 — DTOs, Validation & REST API Basics](#day-6--what-we-did)
+- [Day 7 — Dependency Injection & Middleware](#day-7--dependency-injection--middleware)
+- [Day 8 — Layered Architecture & Central Exception Handling](#day-8--layered-architecture--central-exception-handling)
 - [API Endpoints](#api-endpoints)
 - [Running the Project](#running-the-project)
 - [Running Tests](#running-tests)
@@ -180,6 +178,66 @@ Time:         ~0.7s
 ```
 
 > ⚠️ **Known limitation (fixed in Day 8):** The controller uses a `static` in-memory list which is shared across test instances. Currently tests avoid asserting mutable values (e.g. Name after an Update test runs). This will be properly isolated once we introduce the Service layer with Dependency Injection in Day 7/8.
+
+---
+
+## Day 7 — Dependency Injection & Middleware
+
+- **Service Layer Separation**: Extracted business operations into `IEmployeeService` and concrete `EmployeeService`.
+- **DI Container Lifetimes**:
+  - `AddScoped`: One instance per client request (used for `IEmployeeService` and DbContext).
+  - `AddTransient`: Fresh instance per injection.
+  - `AddSingleton`: Single application-wide instance.
+  - Avoided captive dependencies (never inject Scoped into Singleton).
+- **Custom Logging Middleware**: `RequestLoggingMiddleware` inspects request method, route, and records response time in ms with appropriate log levels.
+- **Mocking with NSubstitute**: Unit tests in `EmployeeControllerTests` isolated with mocks instead of shared in-memory lists.
+
+---
+
+## Day 8 — Layered Architecture & Central Exception Handling
+
+### 1. Layered Architecture & Separation of Concerns
+
+The solution clearly separates HTTP concerns, business logic, and data persistence:
+
+```
+┌────────────────────────────────────────────────────────┐
+│                   HTTP Request                         │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│  Presentation Layer: Controllers (EmployeeController)  │
+│  - HTTP Status Codes, Route Binding, Model Validation  │
+└──────────────────────────┬─────────────────────────────┘
+                           │ calls IEmployeeService
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│  Application Layer: Services (EmployeeService)         │
+│  - Business logic, DTO mapping, Orchestration          │
+└──────────────────────────┬─────────────────────────────┘
+                           │ calls IEmployeeRepository
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│  Infrastructure Layer: Repositories (EmployeeRepository│
+│  - EF Core AppDbContext queries, SaveChanges           │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│           SQL Server / Relational Database             │
+└────────────────────────────────────────────────────────┘
+```
+
+### 2. Repository Pattern
+- Introduced `IEmployeeRepository` and `EmployeeRepository` to isolate EF Core data access.
+- Controllers depend on `IEmployeeService`; Services depend on `IEmployeeRepository`.
+- Facilitates complete unit testing without database dependencies via `EmployeeServiceTests`.
+
+### 3. Central Exception Handling Middleware
+- `GlobalExceptionMiddleware` wraps all pipeline requests.
+- Standardizes errors to RFC 7807 `ProblemDetails` (`application/problem+json`).
+- Translates known exceptions (`ArgumentException`, `KeyNotFoundException`, `UnauthorizedAccessException`) to appropriate HTTP status codes (400, 404, 401, 500).
 
 ---
 

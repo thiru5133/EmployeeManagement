@@ -1,46 +1,46 @@
-using EmployeeManagement.API.Data;
 using EmployeeManagement.API.DTOs;
 using EmployeeManagement.API.Models;
-using Microsoft.EntityFrameworkCore;
+using EmployeeManagement.API.Repositories;
 
 namespace EmployeeManagement.API.Services
 {
     /// <summary>
     /// Concrete implementation of IEmployeeService.
     ///
-    /// Day 7 DI concept:
-    ///   - Registered as SCOPED → one instance per HTTP request
-    ///   - AppDbContext is also Scoped, so this is safe (no captive dependency)
-    ///   - ILogger<T> is injected by the DI container automatically
+    /// Day 8 — Repository Pattern refactor:
+    ///   EmployeeService no longer imports AppDbContext or EF Core.
+    ///   All data access is delegated to IEmployeeRepository.
     ///
-    /// Why Scoped and not Singleton?
-    ///   AppDbContext tracks entity state per-request. A Singleton service holding a
-    ///   Scoped DbContext would cause the context to outlive the request (captive
-    ///   dependency bug) — leading to stale data or threading issues.
+    ///   This means:
+    ///     ✅ Service tests can mock IEmployeeRepository — no DB needed
+    ///     ✅ Swapping DB provider only requires changing the repository
+    ///     ✅ The service stays focused on business logic, not SQL plumbing
+    ///
+    /// DI Lifetime: Scoped — one instance per HTTP request.
+    /// IEmployeeRepository is also Scoped, so no captive dependency.
     /// </summary>
     public class EmployeeService : IEmployeeService
     {
-        private readonly AppDbContext _context;
+        private readonly IEmployeeRepository _repository;
         private readonly ILogger<EmployeeService> _logger;
 
-        public EmployeeService(AppDbContext context, ILogger<EmployeeService> logger)
+        public EmployeeService(IEmployeeRepository repository, ILogger<EmployeeService> logger)
         {
-            _context = context;
+            _repository = repository;
             _logger = logger;
         }
 
         // ── GET ALL ─────────────────────────────────────────────────────────────
         public async Task<IEnumerable<EmployeeResponseDto>> GetAllAsync()
         {
-            _logger.LogInformation("Fetching all employees from database.");
+            _logger.LogInformation("Fetching all employees.");
 
-            var employees = await _context.Employees
-                .AsNoTracking()   // read-only query → no change tracking overhead
-                .ToListAsync();
+            var employees = await _repository.GetAllAsync();
+            var list = employees.ToList();
 
-            _logger.LogInformation("Fetched {Count} employee(s).", employees.Count);
+            _logger.LogInformation("Fetched {Count} employee(s).", list.Count);
 
-            return employees.Select(MapToDto);
+            return list.Select(MapToDto);
         }
 
         // ── GET BY ID ───────────────────────────────────────────────────────────
@@ -48,40 +48,36 @@ namespace EmployeeManagement.API.Services
         {
             _logger.LogInformation("Fetching employee with ID {Id}.", id);
 
-            var employee = await _context.Employees
-                .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.Id == id);
+            var employee = await _repository.GetByIdAsync(id);
 
-            if (employee == null)
+            if (employee is null)
             {
                 _logger.LogWarning("Employee with ID {Id} was NOT found.", id);
                 return null;
             }
 
-            _logger.LogInformation("Employee with ID {Id} found: {Name}.", id, employee.Name);
+            _logger.LogInformation("Employee {Id} found: {Name}.", id, employee.Name);
             return MapToDto(employee);
         }
 
         // ── CREATE ──────────────────────────────────────────────────────────────
         public async Task<EmployeeResponseDto> CreateAsync(CreateEmployeeDto dto)
         {
-            _logger.LogInformation("Creating new employee: {Name} ({Email}).", dto.Name, dto.Email);
+            _logger.LogInformation("Creating employee: {Name} ({Email}).", dto.Name, dto.Email);
 
             var employee = new Employee
             {
-                Name = dto.Name,
-                Email = dto.Email,
+                Name       = dto.Name,
+                Email      = dto.Email,
                 Department = dto.Department,
-                Salary = dto.Salary,
+                Salary     = dto.Salary,
                 JoiningDate = dto.JoiningDate
             };
 
-            _context.Employees.Add(employee);
-            await _context.SaveChangesAsync();
+            var created = await _repository.AddAsync(employee);
 
-            _logger.LogInformation("Employee created successfully with ID {Id}.", employee.Id);
-
-            return MapToDto(employee);
+            _logger.LogInformation("Employee created with ID {Id}.", created.Id);
+            return MapToDto(created);
         }
 
         // ── UPDATE ──────────────────────────────────────────────────────────────
@@ -89,23 +85,25 @@ namespace EmployeeManagement.API.Services
         {
             _logger.LogInformation("Updating employee with ID {Id}.", id);
 
-            var employee = await _context.Employees.FindAsync(id);
+            // We need a tracked entity for EF to detect changes, so fetch with FindAsync
+            // Note: cannot use repository's AsNoTracking version here
+            var employee = await _repository.GetTrackedByIdAsync(id);
 
-            if (employee == null)
+            if (employee is null)
             {
-                _logger.LogWarning("Update failed — employee with ID {Id} was NOT found.", id);
+                _logger.LogWarning("Update failed — employee {Id} not found.", id);
                 return false;
             }
 
-            employee.Name = dto.Name;
-            employee.Email = dto.Email;
+            employee.Name       = dto.Name;
+            employee.Email      = dto.Email;
             employee.Department = dto.Department;
-            employee.Salary = dto.Salary;
+            employee.Salary     = dto.Salary;
             employee.JoiningDate = dto.JoiningDate;
 
-            await _context.SaveChangesAsync();
+            await _repository.UpdateAsync(employee);
 
-            _logger.LogInformation("Employee with ID {Id} updated successfully.", id);
+            _logger.LogInformation("Employee {Id} updated successfully.", id);
             return true;
         }
 
@@ -114,30 +112,29 @@ namespace EmployeeManagement.API.Services
         {
             _logger.LogInformation("Deleting employee with ID {Id}.", id);
 
-            var employee = await _context.Employees.FindAsync(id);
+            var employee = await _repository.GetTrackedByIdAsync(id);
 
-            if (employee == null)
+            if (employee is null)
             {
-                _logger.LogWarning("Delete failed — employee with ID {Id} was NOT found.", id);
+                _logger.LogWarning("Delete failed — employee {Id} not found.", id);
                 return false;
             }
 
-            _context.Employees.Remove(employee);
-            await _context.SaveChangesAsync();
+            await _repository.DeleteAsync(employee);
 
-            _logger.LogInformation("Employee with ID {Id} deleted successfully.", id);
+            _logger.LogInformation("Employee {Id} deleted successfully.", id);
             return true;
         }
 
         // ── MAPPER ──────────────────────────────────────────────────────────────
-        private static EmployeeResponseDto MapToDto(Employee employee) => new()
+        private static EmployeeResponseDto MapToDto(Employee e) => new()
         {
-            Id = employee.Id,
-            Name = employee.Name,
-            Email = employee.Email,
-            Department = employee.Department,
-            Salary = employee.Salary,
-            JoiningDate = employee.JoiningDate
+            Id         = e.Id,
+            Name       = e.Name,
+            Email      = e.Email,
+            Department = e.Department,
+            Salary     = e.Salary,
+            JoiningDate = e.JoiningDate
         };
     }
 }

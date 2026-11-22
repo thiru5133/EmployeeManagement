@@ -1,5 +1,6 @@
 using EmployeeManagement.API.Data;
 using EmployeeManagement.API.Middleware;
+using EmployeeManagement.API.Repositories;
 using EmployeeManagement.API.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,6 +26,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 //    The Scoped service would be held alive longer than its intended lifetime.
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 
+// Day 8: Register the Repository — Scoped matches AppDbContext's lifetime.
+// Request flow: Controller → Service → Repository → DbContext (all Scoped, all safe)
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -33,7 +38,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Employee Management API",
         Version = "v1",
-        Description = "ASP.NET Core Web API — Week 2 Training (Day 7: DI + Middleware)"
+        Description = "ASP.NET Core Web API — Week 2 Training (Day 8: Repository Pattern)"
     });
 });
 
@@ -43,7 +48,11 @@ var app = builder.Build();
 // Order matters! Each middleware wraps the next.
 // Think of it as an onion — request goes in from outside, response comes back out.
 
-// Day 7: Our custom logging middleware — registered FIRST so it logs ALL requests
+// Day 8: Global Exception Handling middleware — catches ALL unhandled exceptions
+// and returns RFC 7807 ProblemDetails JSON. Must be FIRST so it wraps everything.
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
+// Day 7: Our custom logging middleware — logs request & response metadata safely
 app.UseMiddleware<RequestLoggingMiddleware>();
 
 if (app.Environment.IsDevelopment())
